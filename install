@@ -3,6 +3,22 @@
 ###################### Archi Creation Script for Raspberry Pi 3 ############################
 clear
 
+# Add color to pacman
+sed -i 's/#Color/Color/' /etc/pacman.conf # Add color to pacman
+
+# System update
+pacman -Sy pacman
+pacman-key --init
+pacman -S archlinux-keyring
+pacman-key --populate archlinux
+pacman -Syu --ignore filesystem
+pacman -S filesystem --force
+
+# Setup NTP
+pacman -S ntp
+systemctl enable ntpd.service
+systemctl start ntpd.service
+
 # define ansi color code
 blue='\e[1;34m'
 red='\e[1;31m'

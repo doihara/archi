@@ -4,7 +4,7 @@ A follow-up project of Archphile - an audiophile music replay system based on Ar
 # Installation Guide
 
 1. Install ArchLinux Arm on RPi
-2. Remote ssh to RPi as user 'alarm': pw 'alarm'.
+2. Remote ssh to RPi (hostname: alarmpi) as user 'alarm': pw 'alarm'.
 3. Once granted access in RPi, login as root 
 
 su
