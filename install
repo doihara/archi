@@ -2,5 +2,28 @@
 clear
 
 # define ansi color code
-lite-blu='\e[1;34m'
+blue='\e[1;34m'
+red='\e[1;31m'
 NC='\e[0m'
+
+# Deleting alarm user and changing Root password
+echo -e "${blue}Deleting alarm user...${NC}" 
+userdel -r alarm
+
+# Reset root password
+echo -e "${red}Reset root password...${NC}" 
+passwd
+
+# Enable root permissions for sshd
+echo -e "${blue}Setting PermitRootLogin to yes...${NC}" 
+echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+
+# Welcome text
+echo -e "${blue}Downloading default /etc/motd file...${NC}" 
+wget 
+https://raw.githubusercontent.com/doihara/archi/master/files/motd-rpi 
+-O /etc/motd
+
+# Changing hostname
+echo -e "${blue}Set hostname...${NC}" 
+hostnamectl set-hostname archi
