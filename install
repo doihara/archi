@@ -3,6 +3,8 @@
 ###################### Archi Creation Script for Raspberry Pi 3 ############################
 clear
 
+trap '(read -p "[$BASH_SOURCE:$LINENO] $BASH_COMMAND?")' DEBUG
+
 # Add color to pacman
 sed -i 's/#Color/Color/' /etc/pacman.conf # Add color to pacman
 
@@ -25,8 +27,8 @@ red='\e[1;31m'
 NC='\e[0m'
 
 # Deleting alarm user and changing Root password
-echo -e "${blue}Deleting alarm user...${NC}" 
-userdel -r alarm
+#echo -e "${blue}Deleting alarm user...${NC}" 
+#userdel -r alarm
 
 # Reset root password
 echo -e "${red}Reset root password...${NC}" 
@@ -38,9 +40,7 @@ echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
 
 # Welcome text
 echo -e "${blue}Downloading default /etc/motd file...${NC}" 
-wget 
-https://raw.githubusercontent.com/doihara/archi/master/files/motd-rpi 
--O /etc/motd
+wget https://raw.githubusercontent.com/doihara/archi/master/files/motd-rpi -O /etc/motd
 
 # Changing hostname
 echo -e "${blue}Set hostname...${NC}" 
@@ -72,10 +72,10 @@ net.ipv4.tcp_window_scaling = 1
 #net.ipv4.tcp_sack = 0
 net.ipv4.tcp_no_metrics_save = 1
 net.core.netdev_max_backlog = 5000
-net.ipv6.conf.all.disable_ipv6 = 1
 EOF
 
 # Disable ipv6
+echo "net.ipv6.conf.all.disable_ipv6 = 1" >>/etc/sysctl.d/archi-network.conf
 sed -e '/::1/ s/^#*/#/' -i /etc/hosts
 echo >>/etc/dhcpcd.conf
 echo "#Disable ipv6 connectivity" >>/etc/dhcpcd.conf
@@ -96,8 +96,7 @@ ln -sf /dev/null ~/.bash_history
 
 echo -e "${red}Updating system and installing needed packages...${NC}" 
 pacman -Syu --noconfirm
-pacman -S mpd mpc ympd alsa-utils cifs-utils nfs-utils udevil ntfs-3g htop avahi wpa_supplicant wireless_tools iw dhcpcd mongoose hd-idle 
-alsacap hfsprogs dosfstools samba lirc crda exfat-utils
+pacman -S mpd mpc ympd alsa-utils cifs-utils nfs-utils udevil ntfs-3g htop avahi wpa_supplicant wireless_tools iw dhcpcd mongoose hd-idle alsacap hfsprogs dosfstools samba lirc crda exfat-utils
 
 # Remove superfluous packages & clean up pacman cache
 echo -e "${red}Removing unneeded packages and cleaning pacman cache...${NC}" 

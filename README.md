@@ -9,10 +9,13 @@ A follow-up project of Archphile - an audiophile music replay system based on Ar
 
 su
 
+4. Install wget
+
+pacman -S wget
+
 4. Fetch install script and run 
 
-wget https://raw.githubusercontent.com/doihara/archi/master/install -O 
-install-rpi
+wget https://raw.githubusercontent.com/doihara/archi/master/install -O install-rpi
 chmod +x install-rpi
 ./install-rpi
 
