@@ -22,6 +22,7 @@ mongoose -listening_port 8080 -document_root /var/www/covers
 
 # Unmute mixer & set volume to 100%
 amixer scontrols | sed -e 's/^Simple mixer control//' | while read line; do
-	amixer sset "$line" unmute;
-	amixer sset "$line" 100%;
+	amixer sset "'Digital',0" 100%
+	amixer sset "'Analogue Playback Boost',0" 0%
 done
+

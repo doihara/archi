@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ###################### Archi Creation Script for Raspberry Pi 3 ############################
 clear
 
@@ -27,3 +29,185 @@ https://raw.githubusercontent.com/doihara/archi/master/files/motd-rpi
 # Changing hostname
 echo -e "${blue}Set hostname...${NC}" 
 hostnamectl set-hostname archi
+
+# Changing DNS servers
+echo -e "${blue}Changing to Google DNS servers...${NC}" 
+systemctl disable systemd-resolved
+systemctl mask systemd-resolved
+rm /etc/resolv.conf
+cat > /etc/resolv.conf <<"EOF"
+# Google DNS
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+EOF
+echo -e "${blue}Disallowing dhcpcd to change DNS servers...${NC}" 
+echo "nohook resolv.conf" >>/etc/dhcpcd.conf
+
+# Tweaking network parameters
+echo -e "${blue}Set network parameters${NC}"
+mkdir -p /etc/sysctl.d
+cat > /etc/sysctl.d/archi-network.conf <<"EOF"
+net.core.rmem_max=12582912
+net.core.wmem_max=12582912
+net.ipv4.tcp_rmem= 10240 87380 12582912
+net.ipv4.tcp_wmem= 10240 87380 12582912
+net.ipv4.tcp_timestamps = 0
+net.ipv4.tcp_window_scaling = 1
+#net.ipv4.tcp_sack = 0
+net.ipv4.tcp_no_metrics_save = 1
+net.core.netdev_max_backlog = 5000
+net.ipv6.conf.all.disable_ipv6 = 1
+EOF
+
+# Disable ipv6
+sed -e '/::1/ s/^#*/#/' -i /etc/hosts
+echo >>/etc/dhcpcd.conf
+echo "#Disable ipv6 connectivity" >>/etc/dhcpcd.conf
+echo "noipv6rs" >>/etc/dhcpcd.conf
+echo "noipv6" >>/etc/dhcpcd.conf
+
+# Disable onboard soundcard & kerberos
+echo -e "${blue}Disabling onboard soundcard & kerberos...${NC}" 
+cat > /etc/modprobe.d/blacklist.conf <<"EOF"
+blacklist snd_bcm2835
+blacklist rpcsec_gss_krb5
+EOF
+
+# link .bash_history to /dev/null
+echo -e "${red}Linking .bash_history to /dev/null...${NC}" 
+rm /root/.bash_history
+ln -sf /dev/null ~/.bash_history
+
+echo -e "${red}Updating system and installing needed packages...${NC}" 
+pacman -Syu --noconfirm
+pacman -S mpd mpc ympd alsa-utils cifs-utils nfs-utils udevil ntfs-3g htop avahi wpa_supplicant wireless_tools iw dhcpcd mongoose hd-idle 
+alsacap hfsprogs dosfstools samba lirc crda exfat-utils
+
+# Remove superfluous packages & clean up pacman cache
+echo -e "${red}Removing unneeded packages and cleaning pacman cache...${NC}" 
+pacman -Rcsn lvm2 mdadm reiserfsprogs xfsprogs man-db which s-nail licenses jfsutils gettext logrotate --noconfirm
+pacman -Scc
+
+# Bypassing new User=mpd systemd configuration 
+echo -e "${blue}Bypassing User=mpd...${NC}" 
+mkdir /etc/systemd/system/mpd.service.d
+cat > /etc/systemd/system/mpd.service.d/user.conf <<"EOF"
+[Service]
+User=
+EOF
+
+# Setting multi-user.target as the new default target
+echo -e "${blue}Setting default systemd target...${NC}" 
+systemctl set-default -f multi-user.target
+
+# Setup startup config script
+mkdir -p /usr/bin
+wget https://raw.githubusercontent.com/doihara/archi/master/files/startup -O /usr/bin/startup
+chmod +x /usr/bin/startup
+
+cat > startup.service <<"EOF"
+[Unit]
+Description=kernel optimizations for better sound
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/startup
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+mkdir -p /etc/systemd/system/
+install -Dm644 startup.service /etc/systemd/system/startup.service
+
+# Config i2s dac (for IQaudio Plus)
+wget https://raw.githubusercontent.com/doihara/archi/master/files/config.txt -O /boot/config.txt
+
+
+# Enabling systemd services
+echo -e "${red}Enabling needed Systemd services...${NC}" 
+systemctl enable mpd
+systemctl enable ympd
+systemctl enable startup
+systemctl enable avahi-daemon
+
+# Creating stuff for MPD
+echo -e "${blue}Creating required directories for MPD ...${NC}" 
+mkdir /mnt/nas-nfs
+mkdir /mnt/nas-samba
+#wget https://github.com/archphile/recipe/raw/master/files/webradio.tar.gz
+#tar xvfz webradio.tar.gz
+#mv webradio /mnt/
+#chown -R root:root /mnt/webradio
+#rm webradio.tar.gz
+mkdir /mnt/usb-disk
+mkdir /var/lib/mpd/music 
+chown -R mpd /var/lib/mpd
+cd /var/lib/mpd/music
+ln -s /mnt/nas-nfs
+ln -s /mnt/nas-samba
+#ln -s /mnt/webradio
+ln -s /mnt/usb-disk
+gpasswd -a mpd audio
+
+# udevil configuration
+echo -e "${blue}Creating udevil configuration and enabling devmon service...${NC}" 
+wget https://raw.githubusercontent.com/doihara/archi/master/files/udevil.conf -O /etc/udevil/udevil.conf
+systemctl enable devmon@root
+
+# journald.conf configuration and /var/log deletion
+echo -e "${blue}Changing journald.conf configuration and deleting /var/log...${NC}" 
+sed -i 's/^#Storage=auto.*/Storage=none/' /etc/systemd/journald.conf
+#systemctl disable systemd-journald
+#systemctl mask systemd-journald
+#systemctl mask systemd-journal-flush.service
+rm -R /var/log
+
+# temporary fix for ControlGroup and ControlGroupAttribute mpd.service options
+echo -e "${red}Applying temporart fix for mpd.service ...${NC}" 
+sed -e '/ControlGroup/ s/^#*/#/' -i  /usr/lib/systemd/system/mpd.service
+sed -e '/ControlGroupAttribute/ s/^#*/#/' -i  /usr/lib/systemd/system/mpd.service
+systemctl reenable mpd
+
+# Applying various tweaks/mods
+echo -e "${red}Applying various tweaks/mods ...${NC}" 
+echo "Archi \r (\l)" > /etc/issue
+#sed -i 's/#Color/Color/' /etc/pacman.conf
+
+# settings for fetching local cover art using Mpdroid and Mpod
+echo -e "${blue}Making symlinks for fetching local cover art...${NC}" 
+mkdir -p /var/www/covers
+mkdir -p /var/www/Music
+ln -s /var/lib/mpd/music /var/www/covers
+ln -s /var/lib/mpd/music /var/www/Music
+
+# sharing usb disks with samba configuration
+echo -e "${red}Fetching samba configuration for sharing usb disks...${NC}"
+mkdir -p /etc/samba
+cat > /etc/samba/smb.conf <<"EOF"
+[global]
+
+guest account = root
+map to guest = bad user
+log level = 0
+syslog = 0
+directory mask = 0775
+create mask = 0775
+
+[Archi USB Disks]
+
+path = /mnt/usb-disk
+read only = no
+public = yes
+follow symlinks = yes
+wide links = yes
+EOF
+#echo -e "${red}In order to share your usb disk please enable and start smbd and nmbd service...${NC}"
+systemctl enable smbd.service nmbd.service
+
+# system cleanup
+echo -e "${blue}Cleaning up system...${NC}" 
+rm /etc/ssh/ssh_host_*
+
+echo -e "${red}PLEASE REBOOT YOUR SYSTEM IMMEDIATELY!!!!!!${NC}"
